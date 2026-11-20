@@ -123,21 +123,14 @@ struct WrapperScriptTests {
         #expect(result.status == 0)
     }
 
-    @Test func `TERM sent to the wrapper reaches the command`() async throws {
+    @Test func `The command does not inherit an ignored SIGINT`() throws {
+        // A non-interactive shell ignores SIGINT and SIGQUIT in background jobs, and bash cannot
+        // trap a signal ignored on entry: Leanist-tools' test_termination_stops_the_remote_run
+        // failed 3/3 under the first (backgrounding) wrapper.
         let dir = try TempDir()
-        let state = try dir.dir("state")
-        let flag = dir.path + "/got-term"
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        let child = "trap 'echo yes > \"\(flag)\"; exit 143' TERM; sleep 30 & wait"
-        process.arguments = ["-c", Wrapper.script(jobId: "cj-20261121000000-abcdef", stateDir: state), "che-job", "sh", "-c", child]
-        process.standardOutput = FileHandle.nullDevice
-        try process.run()
-        try await Task.sleep(for: .milliseconds(500))
-        process.terminate()
-        process.waitUntilExit()
-        #expect(FileManager.default.fileExists(atPath: flag))
-        #expect(try String(contentsOfFile: state + "/exit_code", encoding: .utf8) == "143\n")
+        let result = try runWrapper(["sh", "-c", "kill -INT $$; echo survived"], stateDir: try dir.dir("state"))
+        #expect(!result.output.contains("survived"))
+        #expect(result.status == 130)
     }
 
     @Test func `Marker for another job is ignored`() {

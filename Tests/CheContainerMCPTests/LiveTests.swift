@@ -59,6 +59,29 @@ struct LiveTests {
         #expect(try String(contentsOfFile: log, encoding: .utf8).contains("started"))
     }
 
+    @Test func `The job's processes ignore no signals`() async throws {
+        let m = manager()
+        let id = try #require(try await m.run(RunRequest(image: image, command: ["bash", "-c", "grep SigIgn /proc/self/status"],
+                                                         cpus: 1, memory: "512M", workdir: "/"))["job_id"] as? String)
+        _ = try await m.wait(jobId: id, timeoutSeconds: 120)
+        let result = try await m.result(jobId: id, tailLines: 5, keepContainer: false)
+        #expect((result["tail"] as? [String])?.contains("SigIgn:\t0000000000000000") == true)
+    }
+
+    @Test func `Cancel delivers TERM to the job and records its exit code`() async throws {
+        let m = manager()
+        let id = try #require(try await m.run(RunRequest(image: image,
+            command: ["bash", "-c", "trap 'echo got TERM; exit 143' TERM; sleep 300 & wait"],
+            cpus: 1, memory: "512M", workdir: "/"))["job_id"] as? String)
+        try await Task.sleep(nanoseconds: 3_000_000_000)
+        let start = Date()
+        _ = try await m.cancel(jobId: id, graceSeconds: 30)
+        #expect(Date().timeIntervalSince(start) < 20)   // well under the grace: TERM was handled
+        let record = try JobStore(paths: paths).load(id)
+        #expect(record.exitCode == 143)
+        #expect(try String(contentsOfFile: try #require(record.logPath), encoding: .utf8).contains("got TERM"))
+    }
+
     @Test func `Preflight errors start no container`() async throws {
         let m = manager()
         let before = try await containerCount()

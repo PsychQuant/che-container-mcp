@@ -196,15 +196,15 @@ public enum Wrapper {
     public static let markerPrefix = "__CHE_JOB_EXIT__"
 
     /// `$0` is `che-job`; the job's command is `"$@"`. The script never re-splits arguments.
+    ///
+    /// The command runs in the foreground. A non-interactive shell would make a background
+    /// command ignore SIGINT and SIGQUIT, and that is inherited by everything the job starts
+    /// (bash cannot even trap a signal ignored on entry). Cancellation therefore signals the
+    /// job's processes directly with `kill -TERM -1` through `exec` (see `JobRuntime.signalJob`).
     public static func script(jobId: String, stateDir: String = MountPlanner.jobStateMount) -> String {
         """
-        "$@" &
-        child=$!
-        trap 'kill -TERM "$child" 2>/dev/null' TERM
-        trap 'kill -INT "$child" 2>/dev/null' INT
-        wait "$child"
+        "$@"
         rc=$?
-        while kill -0 "$child" 2>/dev/null; do wait "$child"; rc=$?; done
         printf '%s\\n' "$rc" > '\(stateDir)/exit_code.tmp' && mv '\(stateDir)/exit_code.tmp' '\(stateDir)/exit_code'
         printf '%s %s %s\\n' '\(markerPrefix)' '\(jobId)' "$rc"
         exit "$rc"

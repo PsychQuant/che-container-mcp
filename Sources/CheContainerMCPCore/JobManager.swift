@@ -468,6 +468,9 @@ public actor JobManager {
             let config = try config()
             let runtime = try await runtime(for: record, config: config)
             if record.state == .running {
+                // TERM to the job's processes; the wrapper (PID 1) then records the exit code.
+                // `stop` waits up to grace_seconds and then kills whatever is left.
+                try? await runtime.signalJob(record.containerName)
                 try await runtime.stop(record.containerName, graceSeconds: graceSeconds)
                 record.state = .cancelled
                 record.endedAt = clock.now()

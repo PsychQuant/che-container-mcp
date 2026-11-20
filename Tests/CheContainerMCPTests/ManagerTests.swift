@@ -320,9 +320,10 @@ import Testing
         let result = try await h.manager.cancel(jobId: id, graceSeconds: 7)
         #expect(result["state"] as? String == "cancelled")
         #expect(result["container_deleted"] as? Bool == true)
-        let calls = h.runner.argvs.filter { ["stop", "logs", "delete"].contains($0.first ?? "") }
-        #expect(calls.map { $0[0] } == ["stop", "logs", "delete"])
-        #expect(calls[0] == ["stop", "--time", "7", id])
+        let calls = h.runner.argvs.filter { ["exec", "stop", "logs", "delete"].contains($0.first ?? "") }
+        #expect(calls.map { $0[0] } == ["exec", "stop", "logs", "delete"])
+        #expect(calls[0] == ["exec", id, "/bin/sh", "-c", "kill -TERM -1"])
+        #expect(calls[1] == ["stop", "--time", "7", id])
         #expect(!h.power.isHeld)
     }
 

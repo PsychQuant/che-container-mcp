@@ -47,6 +47,13 @@ public protocol JobRuntime: Sendable {
     func logs(_ name: String, tail: Int?) async throws -> Data
     func stop(_ name: String, graceSeconds: Int) async throws
     func delete(_ name: String) async throws
+    /// Sends TERM to every process of the job except the wrapper (PID 1), which then records the
+    /// exit code and exits.
+    func signalJob(_ name: String) async throws
+}
+
+extension JobRuntime {
+    static var signalArguments: [String] { ["/bin/sh", "-c", "kill -TERM -1"] }
 }
 
 public struct ContainerJobRuntime: JobRuntime {
@@ -91,6 +98,10 @@ public struct ContainerJobRuntime: JobRuntime {
 
     public func delete(_ name: String) async throws {
         try await client.call(ContainerClient.deleteInvocation(name: name))
+    }
+
+    public func signalJob(_ name: String) async throws {
+        try await client.call(Invocation(["exec"], positional: [name] + Self.signalArguments))
     }
 }
 
@@ -182,5 +193,9 @@ public struct DockerJobRuntime: JobRuntime {
 
     public func delete(_ name: String) async throws {
         try await call(Invocation(["rm"], options: ["--force"], positional: [name]))
+    }
+
+    public func signalJob(_ name: String) async throws {
+        try await call(Invocation(["exec"], positional: [name] + Self.signalArguments))
     }
 }
