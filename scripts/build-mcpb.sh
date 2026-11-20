@@ -43,8 +43,10 @@ else
     : "${NOTARY_PROFILE:?NOTARY_PROFILE not set}"
     ZIP="$(mktemp -d)/$NAME.zip"
     ditto -c -k --keepParent "$BINARY" "$ZIP"
-    xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait | tee /dev/stderr | grep -q "status: Accepted" \
-        || { echo "✗ notarization was not accepted" >&2; exit 1; }
+    # Capture first: `tee | grep -q` would SIGPIPE tee and fail the pipeline under pipefail.
+    NOTARY_OUT=$(xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait 2>&1) || true
+    echo "$NOTARY_OUT" >&2
+    grep -q "status: Accepted" <<<"$NOTARY_OUT" || { echo "✗ notarization was not accepted" >&2; exit 1; }
     spctl --assess --type install --verbose=2 "$BINARY"
 fi
 
