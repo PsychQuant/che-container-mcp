@@ -1,0 +1,74 @@
+{
+  "manifest_version": "0.3",
+  "name": "che-container-mcp",
+  "display_name": "Apple container jobs",
+  "version": "0.1.0",
+  "description": "Run Linux container jobs, including long ones, through Apple's container CLI",
+  "long_description": "An MCP server that wraps Apple's `container` CLI (tested with 1.7.1). container_run starts a one-off job from a local OCI image with a read-only source directory and a writable output directory and returns a job id at once; container_job_status, container_job_wait (bounded), container_job_result and container_job_cancel follow it. Job state is kept on disk, so jobs survive a restart of the server. The exit code is recorded by a /bin/sh wrapper, so images must contain /bin/sh. While a job runs, the server holds an idle-sleep assertion and reports whether the host slept. Docker is used only when a single container_run call passes allow_docker: true and `container` is unavailable. Requires macOS 26 with Apple Silicon and the container CLI installed.",
+  "author": {
+    "name": "Che Cheng",
+    "url": "https://github.com/kiki830621"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PsychQuant/che-container-mcp.git"
+  },
+  "homepage": "https://github.com/PsychQuant/che-container-mcp",
+  "support": "https://github.com/PsychQuant/che-container-mcp/issues",
+  "keywords": [
+    "container",
+    "linux",
+    "oci",
+    "ci",
+    "jobs",
+    "macos"
+  ],
+  "license": "MIT",
+  "privacy_policies": [
+    "https://github.com/PsychQuant/che-container-mcp/blob/main/PRIVACY.md"
+  ],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/CheContainerMCP",
+    "mcp_config": {
+      "command": "${__dirname}/server/CheContainerMCP",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "container_status",
+      "description": "Report the container service status, versions and kernel; optionally start the service"
+    },
+    {
+      "name": "container_image_ensure",
+      "description": "Make sure an image is local, pulling it when absent (returns pulling if the pull outlasts 600 seconds)"
+    },
+    {
+      "name": "container_run",
+      "description": "Start a one-off container job (source read-only at /src, output writable at /out) and return its job id at once"
+    },
+    {
+      "name": "container_job_status",
+      "description": "State of one job or of every job; running jobs include the last 20 log lines"
+    },
+    {
+      "name": "container_job_wait",
+      "description": "Wait for a job at most timeout_seconds; on timeout returns timed_out: true, not an error"
+    },
+    {
+      "name": "container_job_result",
+      "description": "Exit code, elapsed time, log tail and path, host sleep; deletes the job's container after copying its log"
+    },
+    {
+      "name": "container_job_cancel",
+      "description": "Stop a running job, copy its log and delete its container"
+    }
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin"
+    ]
+  }
+}

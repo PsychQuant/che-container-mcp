@@ -1,0 +1,20 @@
+# Swift
+.build/
+.swiftpm/
+
+# IDE / macOS
+.vscode
+.DS_Store
+
+# Build artifacts (distributed via GitHub Release)
+mcpb/server/*
+!mcpb/server/.gitkeep
+mcpb/*.mcpb
+mcpb/*.mcpb.sha256
+
+# Local state
+.spectra/
+.remember/
+.claude/settings.local.json
+.claude/.idd/
+.tmp-*

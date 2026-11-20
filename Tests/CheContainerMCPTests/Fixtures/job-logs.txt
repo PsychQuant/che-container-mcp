@@ -1,0 +1,2 @@
+hello from job
+__CHE_JOB_EXIT__ cj-20261121000000-abc123 0
