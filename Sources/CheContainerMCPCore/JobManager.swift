@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// What `container_run` was asked for, after argument parsing.
@@ -42,6 +43,9 @@ public actor JobManager {
     public static let gapThreshold: TimeInterval = 60
     public static let waitPollInterval: TimeInterval = 2
     public static let runningTailLines = 20
+    /// How long a record may stay unlaunched before an unlisted container counts as lost:
+    /// `run -d`'s own timeout plus a margin.
+    public static let startTimeout: TimeInterval = 150
 
     public let paths: StatePaths
     public let store: JobStore
@@ -174,10 +178,17 @@ public actor JobManager {
             throw ContainerMCPError(.cliFailed, "job \(id) failed to start: \((error as? ContainerMCPError)?.message ?? "start error")")
         }
         guard output.status == 0 else {
+            // 1.7.1 leaves no container behind on a failed start; delete by name in case a
+            // later version does, so container_deleted stays true to its word.
+            try? await runtime.delete(id)
             try markFailedToStart(&record, detail: output.stderrString)
             throw ContainerMCPError.cliFailed("job \(id) failed to start; \(runtime.kind.rawValue) run",
                                               status: output.status, stderr: output.stderrString)
         }
+        // Reload: a reconcile or a sleep event may have saved this record while `run -d` ran.
+        record = (try? store.load(id)) ?? record
+        record.launched = true
+        try store.save(record)
         power.setHeld(true)
         return [
             "job_id": id,
@@ -190,6 +201,7 @@ public actor JobManager {
     }
 
     private func markFailedToStart(_ record: inout JobRecord, detail: String) throws {
+        record = (try? store.load(record.jobId)) ?? record
         record.state = .failedToStart
         record.startError = String(detail.prefix(2_000))
         record.endedAt = clock.now()
@@ -233,6 +245,10 @@ public actor JobManager {
                             record.exitCodeSource = ExitCodeSource.none
                         }
                     }
+                } else if record.launched != true, now.timeIntervalSince(record.startedAt) < Self.startTimeout {
+                    // `run -d` has not returned yet: starting, not lost.
+                    noteGap(&record, until: now)
+                    record.lastMonitoredAt = now
                 } else {
                     noteGap(&record, until: now)
                     record.state = .lost
@@ -259,11 +275,21 @@ public actor JobManager {
         if end.timeIntervalSince(record.lastMonitoredAt) > Self.gapThreshold { record.monitoringGap = true }
     }
 
+    /// The container controls this file, so it is read only when it is a regular file of at most
+    /// 32 bytes, opened with O_NOFOLLOW | O_NONBLOCK (a symlink or FIFO is ignored).
     private func readExitCode(_ id: String) -> (Int, Date)? {
-        let url = store.exitCodeURL(id)
-        guard let text = try? String(contentsOf: url, encoding: .utf8),
-              let code = Int(text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return nil }
-        let modified = (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date) ?? clock.now()
+        let path = store.exitCodeURL(id).path
+        let fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var info = stat()
+        guard fstat(fd, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG, info.st_size <= 32 else { return nil }
+        var buffer = [UInt8](repeating: 0, count: 32)
+        let count = read(fd, &buffer, 32)
+        guard count > 0,
+              let code = Int(String(decoding: buffer[0..<count], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        let modified = Date(timeIntervalSince1970: TimeInterval(info.st_mtimespec.tv_sec))
         return (code, modified)
     }
 
@@ -293,7 +319,13 @@ public actor JobManager {
                 listings[record.runtime] = (runtime, containers)
             }
             let listing = listings[record.runtime]!
-            let fresh = await reconcile(record, containers: listing.containers, runtime: listing.runtime)
+            var fresh = await reconcile(record, containers: listing.containers, runtime: listing.runtime)
+            // A sleep event or the launch flag may have been saved while this reconcile awaited.
+            if let stored = try? store.load(record.jobId) {
+                if stored.sleepEvents.count > fresh.sleepEvents.count { fresh.sleepEvents = stored.sleepEvents }
+                if stored.launched == true { fresh.launched = true }
+                if stored.state.isFinished && !fresh.state.isFinished { fresh = stored }
+            }
             if fresh != record { try? store.save(fresh) }
             updated.append(fresh)
         }

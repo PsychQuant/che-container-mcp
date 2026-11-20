@@ -59,6 +59,9 @@ public struct JobRecord: Codable, Equatable, Sendable {
     public var lastMonitoredAt: Date
     public var monitoringGap: Bool = false
     public var containerDeleted: Bool = false
+    /// Set once `run -d` returned 0. Until then a container that is not listed yet is still
+    /// starting, not lost (the start can take up to `JobManager.startTimeout`).
+    public var launched: Bool?
 
     enum CodingKeys: String, CodingKey {
         case schema
@@ -78,6 +81,7 @@ public struct JobRecord: Codable, Equatable, Sendable {
         case lastMonitoredAt = "last_monitored_at"
         case monitoringGap = "monitoring_gap"
         case containerDeleted = "container_deleted"
+        case launched
     }
 
     /// `host_slept_during_job` (spec: Report host sleep during a job).

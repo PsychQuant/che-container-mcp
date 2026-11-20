@@ -94,6 +94,11 @@ public enum MountPlanner {
         if resolved == stateRoot || isInside(resolved, stateRoot) {
             throw invalid("\(role) \(resolved) is inside the server's state directory")
         }
+        // A mount above the state root would let a container rewrite config.json (and with it
+        // container_path) or other jobs' records.
+        if isInside(stateRoot, resolved) {
+            throw invalid("\(role) \(resolved) contains the server's state directory")
+        }
         // `--mount` separates its fields with commas, so a comma in the path would be misread.
         if resolved.contains(",") { throw invalid("\(role) \(resolved) contains a comma") }
         return resolved

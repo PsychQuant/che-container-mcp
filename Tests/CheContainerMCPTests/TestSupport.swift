@@ -23,6 +23,9 @@ final class FakeCommandRunner: CommandRunner, @unchecked Sendable {
     var nextPid: Int32 = 4242
     /// Called inside `spawnDetached`; when set, the spawned pid starts out finished.
     var onSpawn: (() -> Void)?
+    /// Awaited before answering a call whose argv starts with `gatePrefix` (simulates a slow CLI).
+    var gatePrefix: [String]?
+    var gate: (() async -> Void)?
 
     var calls: [Call] { lock.lock(); defer { lock.unlock() }; return _calls }
     var argvs: [[String]] { calls.map(\.arguments) }
@@ -43,7 +46,9 @@ final class FakeCommandRunner: CommandRunner, @unchecked Sendable {
         _calls.append(Call(executable: executable, arguments: arguments))
         let error = errors.first { arguments.starts(with: $0.prefix) }?.error
         let response = responses.first { arguments.starts(with: $0.prefix) }?.output
+        let gate = gatePrefix.map { arguments.starts(with: $0) } == true ? self.gate : nil
         lock.unlock()
+        if let gate { await gate() }
         if let error { throw error }
         return response ?? CommandOutput(status: 0)
     }
