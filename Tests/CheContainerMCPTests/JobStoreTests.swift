@@ -125,8 +125,8 @@ struct WrapperScriptTests {
 
     @Test func `The command does not inherit an ignored SIGINT`() throws {
         // A non-interactive shell ignores SIGINT and SIGQUIT in background jobs, and bash cannot
-        // trap a signal ignored on entry: Leanist-tools' test_termination_stops_the_remote_run
-        // failed 3/3 under the first (backgrounding) wrapper.
+        // trap a signal ignored on entry: a CI suite's SIGINT termination test failed 3/3 under
+        // the first (backgrounding) wrapper.
         let dir = try TempDir()
         let result = try runWrapper(["sh", "-c", "kill -INT $$; echo survived"], stateDir: try dir.dir("state"))
         #expect(!result.output.contains("survived"))
