@@ -10,6 +10,18 @@ An MCP server that runs Linux container jobs — including ones far longer than 
 
 Tested with `container` **1.7.1** on macOS 26 (Apple Silicon). The CLI's JSON output is still changing between 1.x releases; unknown fields are ignored and a missing required field returns `cli_output_unexpected` with the CLI version.
 
+## Install
+
+Claude Code (the plugin downloads the notarized binary to `~/bin/CheContainerMCP` on first use, at the version the plugin pins):
+
+```bash
+/plugin install che-container-mcp --marketplace PsychQuant/che-container-mcp
+```
+
+On older Claude Code: `/plugin marketplace add PsychQuant/che-container-mcp`, then `/plugin install che-container-mcp@che-container-mcp`.
+
+The plugin adds the MCP server (tools appear as `mcp__plugin_che-container-mcp_container__*`), a `container-jobs` skill, a `/container-status` command and a SessionStart status line. Claude Desktop: install the `.mcpb` from the release.
+
 ## Requirements
 
 - macOS 26 on Apple Silicon, with the `container` CLI installed at `/usr/local/bin/container` (or set `container_path`).

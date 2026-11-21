@@ -1,0 +1,10 @@
+{
+  "name": "che-container-mcp",
+  "version": "0.1.0",
+  "description": "Apple container MCP Server - 7 個工具跑 Linux 容器工作（含長時間 CI）：立即回傳 job id、狀態落盤跨重啟、exit code 記錄、原始碼唯讀掛載、job 期間防閒置睡眠、Docker 只在單次授權時使用",
+  "author": {
+    "name": "Che Cheng"
+  },
+  "license": "MIT",
+  "keywords": ["mcp", "container", "linux", "oci", "ci", "jobs", "macos"]
+}

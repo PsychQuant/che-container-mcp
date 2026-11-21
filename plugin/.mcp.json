@@ -1,0 +1,7 @@
+{
+  "container": {
+    "type": "stdio",
+    "command": "${CLAUDE_PLUGIN_ROOT}/bin/che-container-mcp-wrapper.sh",
+    "description": "Linux container jobs through Apple's container CLI"
+  }
+}
